@@ -1,6 +1,5 @@
 import json
 import os
-import time
 from hashlib import md5
 
 from fetcher import fetch_page
@@ -8,9 +7,7 @@ from detectors import diff_significant, md5_hash, normalize_html
 from notifier import notify
 from config import TEST_MODE, VERBOSE
 
-
 STATUS_FILE = "status.json"
-
 
 # ---------------- STORAGE ----------------
 def load_status():
@@ -21,16 +18,13 @@ def load_status():
             return {}
     return {}
 
-
 def save_status(status):
     with open(STATUS_FILE, "w") as f:
         json.dump(status, f, indent=2)
 
-
 def log(*args):
     if VERBOSE:
         print("[MONITOR]", *args)
-
 
 # ---------------- MONITOR ONCE ----------------
 def monitor_once():
@@ -41,11 +35,14 @@ def monitor_once():
     new_status = {}
 
     for url in urls:
-        print(f"\nChecking: {url}")
+        log(f"Checking: {url}")
 
         html, text, screenshot = fetch_page(url)
 
-        # Normalize & hash
+        if html == "" and text == "" and screenshot == b"":
+            log("Failed to fetch page, skipping.")
+            continue
+
         clean_text = normalize_html(html)
 
         html_hash = md5_hash(html)
@@ -53,7 +50,6 @@ def monitor_once():
         img_hash = md5_hash(screenshot)
 
         old = old_status.get(url, {})
-
         was_html = old.get("html", "")
         was_text = old.get("text", "")
         was_img_hash = old.get("img_hash", "")
@@ -79,23 +75,24 @@ def monitor_once():
 
         # -------- ALERT HANDLING --------
         if TEST_MODE:
-            print("TEST_MODE = True → Forcing alert for testing.")
+            log("TEST_MODE = True → Forcing alert for testing.")
 
         if changed or TEST_MODE:
-            screenshot_path = "latest_snapshot.png"
-            with open(screenshot_path, "wb") as f:
-                f.write(screenshot)
-
-            caption = f"🔔 Change detected at:\n{url}"
-            notify(caption, screenshot_path=screenshot_path)
-            print("Alert sent!")
+            if screenshot:
+                screenshot_path = "latest_snapshot.png"
+                with open(screenshot_path, "wb") as f:
+                    f.write(screenshot)
+                notify(f"🔔 Change detected at:\n{url}", screenshot_path=screenshot_path)
+                log("Alert sent with screenshot.")
+            else:
+                notify(f"🔔 Change detected at:\n{url}")
+                log("Alert sent (no screenshot).")
         else:
-            print("No meaningful change.")
+            log("No meaningful change.")
 
     save_status(new_status)
     log("Monitor run complete.")
 
-
-# ---------------- MAIN (GitHub Actions uses single run) ----------------
+# ---------------- MAIN ----------------
 if __name__ == "__main__":
     monitor_once()

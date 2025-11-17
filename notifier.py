@@ -9,6 +9,7 @@ from io import BytesIO
 NOTIFY_TELEGRAM = os.environ.get("NOTIFY_TELEGRAM", "true").lower() == "true"
 NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "false").lower() == "true"
 NOTIFY_WEBHOOK = os.environ.get("NOTIFY_WEBHOOK", "false").lower() == "true"
+TEST_MODE = os.environ.get("TEST_MODE", "false").lower() == "true"
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -16,15 +17,38 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 EMAIL_FROM = os.environ.get("EMAIL_FROM")
 EMAIL_TO = os.environ.get("EMAIL_TO")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
-SMTP_SERVER = os.environ.get("SMTP_SERVER")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 
+
+def env_int(varname, default):
+    val = os.environ.get(varname)
+    if val is None or val.strip() == "":
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
+
+SMTP_PORT = env_int("SMTP_PORT", 587)
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+
+
+# ---------------- HELPER ----------------
+def missing(*vars_list):
+    return any(v is None or v == "" for v in vars_list)
 
 
 # ---------------- EMAIL ----------------
 def send_email(message):
+    if missing(EMAIL_FROM, EMAIL_TO, EMAIL_PASSWORD):
+        print("Email disabled: missing EMAIL_FROM / EMAIL_TO / EMAIL_PASSWORD")
+        return
     try:
+        if TEST_MODE:
+            print("[TEST MODE] Email skipped:", message)
+            return
+
         msg = MIMEText(message)
         msg["Subject"] = "Stock Alert"
         msg["From"] = EMAIL_FROM
@@ -42,10 +66,14 @@ def send_email(message):
 
 # ---------------- TELEGRAM ----------------
 def send_telegram_text(message):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram bot or chat ID not set. Skipping Telegram text alert.")
+    if missing(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID):
+        print("Telegram disabled: missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
         return
     try:
+        if TEST_MODE:
+            print("[TEST MODE] Telegram message skipped:", message)
+            return
+
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         r = requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message})
         print("Telegram alert sent!", r.status_code)
@@ -54,10 +82,14 @@ def send_telegram_text(message):
 
 
 def send_telegram_photo(screenshot_path=None, screenshot_bytes=None, caption="Stock update!"):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram bot or chat ID not set. Skipping Telegram photo alert.")
+    if missing(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID):
+        print("Telegram disabled: missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
         return
     try:
+        if TEST_MODE:
+            print("[TEST MODE] Telegram photo skipped:", caption)
+            return
+
         # Load image from path or bytes
         if screenshot_bytes:
             img = Image.open(BytesIO(screenshot_bytes))
@@ -86,10 +118,14 @@ def send_telegram_photo(screenshot_path=None, screenshot_bytes=None, caption="St
 
 # ---------------- WEBHOOK ----------------
 def send_webhook(message):
-    if not WEBHOOK_URL:
-        print("Webhook URL not set. Skipping webhook notification.")
+    if missing(WEBHOOK_URL):
+        print("Webhook disabled: missing WEBHOOK_URL")
         return
     try:
+        if TEST_MODE:
+            print("[TEST MODE] Webhook skipped:", message)
+            return
+
         requests.post(WEBHOOK_URL, json={"text": message})
         print("Webhook notification sent!")
     except Exception as e:
@@ -98,6 +134,8 @@ def send_webhook(message):
 
 # ---------------- MAIN NOTIFY ----------------
 def notify(message, screenshot_path=None, screenshot_bytes=None):
+    print("Notify called with:", message)
+
     if NOTIFY_EMAIL:
         send_email(message)
 
