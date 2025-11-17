@@ -1,25 +1,17 @@
-# TELEGRAM_BOT_TOKEN = ""          # ← Add your bot token
-# TELEGRAM_CHAT_ID = ""            # ← Add your chat ID
-
-# CHECK_INTERVAL_MIN = 5           # Only used if you run monitor.py loop mode
-
-
-
-
 # config.py
-# -----------
 # Central configuration for the universal monitor project.
-# Replace the placeholder values with your own secrets where needed.
+# Safe to commit — all secrets must come from environment variables.
+
+import os
 
 # ---------------- MONITOR / SCHEDULER ----------------
-# Number of minutes to wait between checks when running in loop mode.
-CHECK_INTERVAL_MIN = 5
-# TEST_MODE=False
-# If you prefer seconds or a one-off run you can override usage in monitor.py
-# (monitor.py uses CHECK_INTERVAL_MIN in the examples earlier).
+# Minutes between checks when running monitor.py in loop mode.
+CHECK_INTERVAL_MIN = int(os.environ.get("CHECK_INTERVAL_MIN", "5"))
+
+# Enable test mode? (prevents notifications)
+TEST_MODE = os.environ.get("TEST_MODE", "false").lower() == "true"
 
 # ---------------- KEYWORDS ----------------
-# Words that the detector will look for when deciding if a change is meaningful.
 KEYWORDS = [
     "in stock", "out of stock",
     "unavailable", "available",
@@ -28,59 +20,46 @@ KEYWORDS = [
     "back in stock", "only", "left", "available to ship"
 ]
 
-# ---------------- TELEGRAM (recommended) ----------------
-import os
-
+# ---------------- TELEGRAM ----------------
+# All must come from GitHub Actions → Settings → Secrets → Actions
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-TEST_MODE = os.environ.get("TEST_MODE", "false").lower() == "true"
 
-NOTIFY_TELEGRAM = True               # Enable/disable Telegram notifications
-
+# Toggle via environment, fallback = true
+NOTIFY_TELEGRAM = os.environ.get("NOTIFY_TELEGRAM", "true").lower() == "true"
 
 
 # ---------------- EMAIL ----------------
-NOTIFY_EMAIL = False                 # Enable/disable email notifications
-EMAIL_FROM = ""                      # Sender address (Gmail recommended)
-EMAIL_TO = ""                        # Recipient address
-EMAIL_PASSWORD = ""                  # App password / SMTP password
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
+# Set NOTIFY_EMAIL=true in env to enable
+NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "false").lower() == "true"
 
-# ---------------- WEBHOOK (Discord/Slack/custom) ----------------
-NOTIFY_WEBHOOK = False
-WEBHOOK_URL = ""                     # Full webhook URL for POST requests
+EMAIL_FROM = os.environ.get("EMAIL_FROM")
+EMAIL_TO = os.environ.get("EMAIL_TO")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+
+
+# ---------------- WEBHOOK (Discord, Slack, Custom) ----------------
+NOTIFY_WEBHOOK = os.environ.get("NOTIFY_WEBHOOK", "false").lower() == "true"
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+
 
 # ---------------- PLAYWRIGHT / FETCHER ----------------
-# Toggle headless mode (set to False for debugging when you want to see the browser)
-PLAYWRIGHT_HEADLESS = True
+PLAYWRIGHT_HEADLESS = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() == "true"
+PLAYWRIGHT_NAV_TIMEOUT_MS = int(os.environ.get("PLAYWRIGHT_NAV_TIMEOUT_MS", "0"))
 
-# If a site blocks headless Chrome, toggling headful may help.
-# Set to 0 to disable the default navigation timeout (used in fetcher).
-PLAYWRIGHT_NAV_TIMEOUT_MS = 0
-
-# Optional: route-blocked resource types to speed up page loads (images/fonts/media)
-# Keep as is unless you need images/screenshots to include images.
 BLOCKED_RESOURCE_TYPES = ["image", "media", "font"]
 
-# ---------------- RETRIES & TIMINGS ----------------
-# How many times to retry fetching a page on failure (simple retry logic can use this)
-FETCH_RETRIES = 1
-
-# Milliseconds to wait after domcontentloaded before grabbing text/screenshot
-POST_LOAD_WAIT_MS = 1500  # 1500ms = 1.5s
+FETCH_RETRIES = int(os.environ.get("FETCH_RETRIES", "1"))
+POST_LOAD_WAIT_MS = int(os.environ.get("POST_LOAD_WAIT_MS", "1500"))
 
 # ---------------- LOGGING / DEBUG ----------------
-VERBOSE = True   # Set to False to reduce console logs
+VERBOSE = os.environ.get("VERBOSE", "true").lower() == "true"
 
 # ---------------- STORAGE ----------------
-STATUS_FILE = "status.json"   # Path used by storage.py
+STATUS_FILE = os.environ.get("STATUS_FILE", "status.json")
 
 # ---------------- SAFETY / RATE LIMITING ----------------
-# Minimum seconds to sleep between requests to the same host (politeness)
-PER_HOST_MIN_DELAY_SEC = 1
-
-# ---------------- NOTES ----------------
-# - Fill TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID for instant Telegram alerts.
-# - If you enable email, use an app password (Gmail) and set NOTIFY_EMAIL = True.
-# - Keep secrets out of version control. Consider using environment variables for production.
+PER_HOST_MIN_DELAY_SEC = int(os.environ.get("PER_HOST_MIN_DELAY_SEC", "1"))
